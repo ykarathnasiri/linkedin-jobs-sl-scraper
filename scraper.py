@@ -1,11 +1,15 @@
-import requests
+import requests 
 from bs4 import BeautifulSoup
+import math
 import pandas as pd
 from datetime import datetime
 import logging
 import time
 import os
+import random
 from pathlib import Path
+from tqdm import tqdm
+from itertools import product
 
 # Configure logging
 log_filename = 'linkedin_scraper.log'
@@ -31,177 +35,93 @@ except PermissionError:
 
 logger = logging.getLogger(__name__)
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+# Multiple user agents to rotate
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
+]
+
+# Sort options and time filters
+SORT_OPTIONS = {
+    'relevant': 'R',  # Most relevant
+    'recent': 'DD',   # Most recent
+    'applied': 'A'    # Most applied
 }
 
-def create_empty_job_dict():
-    """Create a dictionary with all required fields initialized as None"""
+TIME_FILTERS = {
+    '24h': '1',
+    'week': '1,2,3,4,5,6,7',
+    'month': '1,2,3,4',
+    'any': ''
+}
+
+def get_random_headers():
+    """Get random headers to avoid detection"""
     return {
-        "job_id": None,
-        "title": None,
-        "company": None,
-        "location": None,
-        "experience_level": None,
-        "employment_type": None,
-        "posted_date": None,
-        "job_function": None,
-        "industries": None,
-        "salary": None,
-        "required_skills": None,
-        "description": None,
-        "company_size": None,
-        "company_industry": None,
-        "applicant_count": None,
-        "job_url": None
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Referer": "https://www.linkedin.com/",
+        "Connection": "keep-alive"
     }
 
-def initialize_csv(filename):
-    """Initialize CSV file with headers"""
-    columns = [
-        "job_id", "title", "company", "location", "experience_level",
-        "employment_type", "posted_date", "job_function", "industries",
-        "salary", "required_skills", "description", "company_size",
-        "company_industry", "applicant_count", "job_url"
-    ]
-    df = pd.DataFrame(columns=columns)
-    df.to_csv(filename, index=False, encoding='utf-8', mode='w')
-    return filename
-
-def append_to_csv(job_data, filename):
-    """Append a single job to the CSV file"""
+def extract_job_data(card, sort_method, time_filter):
+    """Extract data from a job card"""
     try:
-        df = pd.DataFrame([job_data])
-        df.to_csv(filename, mode='a', header=False, index=False, encoding='utf-8')
-        return True
-    except Exception as e:
-        logger.error(f"Error appending to CSV: {str(e)}")
-        return False
-
-def scrape_job_listings():
-    """Scrape all job listings from LinkedIn for Sri Lanka"""
-    base_url = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?location=Sri%20Lanka&start={}"
-    page = 0
-    total_jobs = 0
-    consecutive_empty_pages = 0
-    max_empty_pages = 3  # Stop after 3 consecutive empty pages
-    
-    # Initialize CSV file
-    data_dir = Path('data')
-    data_dir.mkdir(exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_filename = data_dir / f"linkedin_jobs_{timestamp}.csv"
-    initialize_csv(csv_filename)
-    
-    logger.info("Starting to scrape LinkedIn jobs in Sri Lanka")
-    print("Starting to scrape LinkedIn jobs in Sri Lanka...")
-    
-    while consecutive_empty_pages < max_empty_pages:
-        try:
-            url = base_url.format(page * 25)
-            response = requests.get(url, headers=HEADERS)
-            
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch page {page}. Status code: {response.status_code}")
-                break
-                
-            soup = BeautifulSoup(response.text, 'html.parser')
-            job_cards = soup.find_all("div", {"class": "base-card"})
-            
-            if not job_cards:
-                consecutive_empty_pages += 1
-                if consecutive_empty_pages >= max_empty_pages:
-                    logger.info("No more jobs found. Scraping complete.")
-                    print(f"\nScraping complete! Total jobs scraped: {total_jobs}")
-                    break
-                continue
-            
-            consecutive_empty_pages = 0  # Reset counter when we find jobs
-            
-            for card in job_cards:
-                try:
-                    job_data = extract_job_data(card)
-                    if job_data:
-                        append_to_csv(job_data, csv_filename)
-                        total_jobs += 1
-                        print(f"\rJobs scraped: {total_jobs}", end="", flush=True)
-                        logger.info(f"Scraped job: {job_data['title']} at {job_data['company']}")
-                    time.sleep(1)  # Respect rate limits
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to extract data from a job card: {str(e)}")
-                    continue
-            
-            page += 1
-            time.sleep(2)  # Respect rate limits between pages
-            
-        except Exception as e:
-            logger.error(f"Error processing page {page}: {str(e)}")
-            break
-            
-    return total_jobs, csv_filename
-
-def extract_job_data(card):
-    """Extract data from a job card with exact field structure"""
-    try:
-        # Initialize with empty structure
-        job_data = create_empty_job_dict()
+        job_data = {}
         
         # Get job link and ID
         job_link = card.find("a", {"class": "base-card__full-link"})
         if not job_link:
             return None
+            
+        job_url = job_link.get('href').split('?')[0]
+        job_id = job_url.split('-')[-1]
+        
+        # Extract basic info from card
+        title_elem = card.find("h3", {"class": "base-search-card__title"})
+        company_elem = card.find("h4", {"class": "base-search-card__subtitle"})
+        location_elem = card.find("span", {"class": "job-search-card__location"})
+        time_elem = card.find("time")
         
         job_data.update({
-            "job_id": job_link.get('href').split('?')[0].split('-')[-1],
-            "title": get_text(card, "h3", "base-search-card__title"),
-            "company": get_text(card, "h4", "base-search-card__subtitle"),
-            "location": get_text(card, "span", "job-search-card__location"),
-            "posted_date": get_date(card),
-            "job_url": job_link.get('href')
+            "job_id": job_id,
+            "title": title_elem.text.strip() if title_elem else None,
+            "company": company_elem.text.strip() if company_elem else None,
+            "location": location_elem.text.strip() if location_elem else None,
+            "posted_date": time_elem.get("datetime") if time_elem else None,
+            "job_url": job_url,
+            "sort_method": sort_method,
+            "time_filter": time_filter
         })
         
         # Get detailed info
-        details = get_job_details(job_data["job_id"])
-        job_data.update(details)
+        details = get_job_details(job_id)
+        if details:
+            job_data.update(details)
         
         return job_data
+        
     except Exception as e:
         logger.error(f"Error extracting job data: {str(e)}")
         return None
 
-def get_text(element, tag, class_name):
-    """Safely extract text from an element"""
-    found = element.find(tag, {"class": class_name})
-    return found.text.strip() if found else None
-
-def get_date(card):
-    """Safely extract date from card"""
-    time_element = card.find("time")
-    return time_element.get("datetime") if time_element else None
-
 def get_job_details(job_id):
-    """Get detailed job information with specific field structure"""
+    """Get detailed job information"""
     url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
     try:
-        response = requests.get(url, headers=HEADERS)
+        response = requests.get(url, headers=get_random_headers())
+        
         if response.status_code != 200:
             return {}
 
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        details = {
-            "experience_level": None,
-            "employment_type": None,
-            "job_function": None,
-            "industries": None,
-            "salary": None,
-            "required_skills": None,
-            "description": None,
-            "company_size": None,
-            "company_industry": None,
-            "applicant_count": None
-        }
+        details = {}
         
         # Extract description
         desc_element = soup.find("div", {"class": "show-more-less-html__markup"})
@@ -212,43 +132,29 @@ def get_job_details(job_id):
         criteria_list = soup.find("ul", {"class": "description__job-criteria-list"})
         if criteria_list:
             for item in criteria_list.find_all("li"):
-                text = item.text.strip()
-                if "Seniority level" in text:
-                    details["experience_level"] = item.find("span", {"class": "description__job-criteria-text"}).text.strip()
-                elif "Employment type" in text:
-                    details["employment_type"] = item.find("span", {"class": "description__job-criteria-text"}).text.strip()
-                elif "Job function" in text:
-                    details["job_function"] = item.find("span", {"class": "description__job-criteria-text"}).text.strip()
-                elif "Industries" in text:
-                    details["industries"] = item.find("span", {"class": "description__job-criteria-text"}).text.strip()
+                header = item.find("h3", {"class": "description__job-criteria-subheader"})
+                if header:
+                    header_text = header.text.strip()
+                    value = item.find("span", {"class": "description__job-criteria-text"})
+                    if value:
+                        value_text = value.text.strip()
+                        if "Seniority level" in header_text:
+                            details["experience_level"] = value_text
+                        elif "Employment type" in header_text:
+                            details["employment_type"] = value_text
+                        elif "Job function" in header_text:
+                            details["job_function"] = value_text
+                        elif "Industries" in header_text:
+                            details["industries"] = value_text
 
-        # Extract salary if available
-        salary_element = soup.find("span", string=lambda text: text and "salary" in text.lower())
-        if salary_element:
-            details["salary"] = salary_element.get_text(strip=True)
-
-        # Extract skills
-        skills_section = soup.find("div", string=lambda text: text and "Skills" in text)
-        if skills_section:
-            skills_list = skills_section.find_next("ul")
-            if skills_list:
-                details["required_skills"] = ", ".join([li.text.strip() for li in skills_list.find_all("li")])
-
-        # Extract company info
-        company_info = soup.find("div", {"class": "company-details"})
-        if company_info:
-            size_element = company_info.find("span", string=lambda text: text and "Company size" in text)
-            if size_element:
-                details["company_size"] = size_element.find_next("span").text.strip()
-            
-            industry_element = company_info.find("span", string=lambda text: text and "Industry" in text)
-            if industry_element:
-                details["company_industry"] = industry_element.find_next("span").text.strip()
-
-        # Extract applicant count
-        applicants_element = soup.find("span", string=lambda text: text and "applicants" in text.lower())
-        if applicants_element:
-            details["applicant_count"] = applicants_element.text.strip()
+        # Additional fields
+        details.update({
+            "salary": None,  # LinkedIn rarely shows salary
+            "required_skills": None,  # Skills are often in description
+            "company_size": None,
+            "company_industry": None,
+            "applicant_count": None
+        })
 
         return details
 
@@ -256,19 +162,206 @@ def get_job_details(job_id):
         logger.error(f"Error fetching details for job {job_id}: {str(e)}")
         return {}
 
+def scrape_jobs_with_filters(location="Sri Lanka", jobs_per_combination=400):
+    """Scrape jobs using different sort options and time filters"""
+    all_jobs_data = []
+    
+    for sort_name, sort_value in SORT_OPTIONS.items():
+        for filter_name, filter_value in TIME_FILTERS.items():
+            logger.info(f"Scraping with sort: {sort_name}, filter: {filter_name}")
+            
+            base_url = (
+                f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?"
+                f"location={location}&sortBy={sort_value}&f_TPR={filter_value}&start={{}}"
+            )
+            
+            pages = math.ceil(jobs_per_combination / 25)
+            
+            with tqdm(total=jobs_per_combination, 
+                     desc=f"Sort: {sort_name}, Filter: {filter_name}") as pbar:
+                
+                for page in range(pages):
+                    try:
+                        url = base_url.format(page * 25)
+                        response = requests.get(url, headers=get_random_headers())
+                        
+                        if response.status_code == 429:
+                            logger.warning("Rate limited. Waiting...")
+                            time.sleep(60 + random.randint(0, 30))
+                            continue
+                            
+                        if response.status_code != 200:
+                            continue
+
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        job_cards = soup.find_all("div", {"class": "base-card"})
+                        
+                        if not job_cards:
+                            break
+                            
+                        for card in job_cards:
+                            job_data = extract_job_data(card, sort_name, filter_name)
+                            if job_data:
+                                all_jobs_data.append(job_data)
+                                pbar.update(1)
+                                
+                        time.sleep(random.uniform(2, 5))
+                        
+                    except Exception as e:
+                        logger.error(f"Error on page {page}: {str(e)}")
+                        continue
+                        
+            # Longer pause between different search combinations
+            time.sleep(random.uniform(10, 15))
+            
+            # Save progress after each combination
+            if all_jobs_data:
+                save_to_csv(all_jobs_data)
+                
+    return all_jobs_data
+
+def save_to_csv(jobs_data, filename=None):
+    """Save or append the scraped data to a single CSV file"""
+    if not jobs_data:
+        return False
+        
+    data_dir = Path('data')
+    data_dir.mkdir(exist_ok=True)
+    
+    # Use provided filename or create one if it doesn't exist
+    if filename is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = data_dir / f"linkedin_jobs_{timestamp}.csv"
+    
+    try:
+        df = pd.DataFrame(jobs_data)
+        columns = [
+            "job_id", "title", "company", "location", "experience_level",
+            "employment_type", "posted_date", "job_function", "industries",
+            "salary", "required_skills", "description", "company_size",
+            "company_industry", "applicant_count", "job_url", "sort_method",
+            "time_filter"
+        ]
+        df = df.reindex(columns=columns)
+        
+        # If file exists, append without headers
+        if os.path.exists(filename):
+            df.to_csv(filename, mode='a', header=False, index=False, encoding='utf-8')
+        else:
+            # If file doesn't exist, create with headers
+            df.to_csv(filename, index=False, encoding='utf-8')
+            
+        logger.info(f"Data saved/appended to {filename}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving data: {str(e)}")
+        return False
+
+def scrape_jobs_with_filters(location="Sri Lanka", jobs_per_combination=1000):
+    """Scrape jobs using different sort options and time filters"""
+    # Create single output file name at start
+    data_dir = Path('data')
+    data_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = data_dir / f"linkedin_jobs_{timestamp}.csv"
+    
+    jobs_batch = []  # Buffer for batch saving
+    batch_size = 50  # Save every 50 jobs
+    
+    for sort_name, sort_value in SORT_OPTIONS.items():
+        for filter_name, filter_value in TIME_FILTERS.items():
+            logger.info(f"Scraping with sort: {sort_name}, filter: {filter_name}")
+            
+            base_url = (
+                f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?"
+                f"location={location}&sortBy={sort_value}&f_TPR={filter_value}&start={{}}"
+            )
+            
+            pages = math.ceil(jobs_per_combination / 25)
+            
+            with tqdm(total=jobs_per_combination, 
+                     desc=f"Sort: {sort_name}, Filter: {filter_name}") as pbar:
+                
+                for page in range(pages):
+                    try:
+                        url = base_url.format(page * 25)
+                        response = requests.get(url, headers=get_random_headers())
+                        
+                        if response.status_code == 429:
+                            logger.warning("Rate limited. Waiting...")
+                            time.sleep(60 + random.randint(0, 30))
+                            continue
+                            
+                        if response.status_code != 200:
+                            continue
+
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        job_cards = soup.find_all("div", {"class": "base-card"})
+                        
+                        if not job_cards:
+                            break
+                            
+                        for card in job_cards:
+                            job_data = extract_job_data(card, sort_name, filter_name)
+                            if job_data:
+                                jobs_batch.append(job_data)
+                                pbar.update(1)
+                                
+                                # Save batch when it reaches the batch size
+                                if len(jobs_batch) >= batch_size:
+                                    save_to_csv(jobs_batch, output_file)
+                                    jobs_batch = []  # Clear batch after saving
+                                
+                        time.sleep(random.uniform(2, 5))
+                        
+                    except Exception as e:
+                        logger.error(f"Error on page {page}: {str(e)}")
+                        # Save any remaining jobs in batch if there's an error
+                        if jobs_batch:
+                            save_to_csv(jobs_batch, output_file)
+                            jobs_batch = []
+                        continue
+                        
+            # Save any remaining jobs in batch after each filter combination
+            if jobs_batch:
+                save_to_csv(jobs_batch, output_file)
+                jobs_batch = []
+                
+            # Longer pause between different search combinations
+            time.sleep(random.uniform(10, 15))
+                
+    return output_file
+
 def main():
     try:
-        total_jobs, csv_filename = scrape_job_listings()
-        print(f"\nAll available jobs in Sri Lanka have been scraped!")
-        print(f"Total jobs scraped: {total_jobs}")
-        print(f"Data saved to: {csv_filename}")
+        while True:
+            try:
+                jobs_per_combination = input("Enter number of jobs to scrape per combination (default 400): ").strip()
+                jobs_per_combination = int(jobs_per_combination) if jobs_per_combination else 400 # LinkedIn only load 40 pages and one page include around 10 Job cards
+                if jobs_per_combination > 0:
+                    break
+                print("Please enter a positive number")
+            except ValueError:
+                print("Please enter a valid number")
+
+        logger.info("Starting comprehensive LinkedIn job scraping")
         
+        output_file = scrape_jobs_with_filters(jobs_per_combination=jobs_per_combination)
+        
+        # Count total jobs in file
+        try:
+            df = pd.read_csv(output_file)
+            total_jobs = len(df)
+            print(f"\nSuccessfully scraped {total_jobs} jobs")
+            print(f"Data saved to {output_file}")
+        except Exception as e:
+            logger.error(f"Error reading final file: {str(e)}")
+            print("Error reading final file. Check the log for details.")
+
     except KeyboardInterrupt:
         print("\nScraping interrupted by user")
-        print("Don't worry - all scraped data has been saved to CSV")
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
-        print("An error occurred. Check the log file for details.")
 
 if __name__ == "__main__":
     main()
