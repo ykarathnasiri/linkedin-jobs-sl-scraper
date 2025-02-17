@@ -19,8 +19,8 @@ python --version
 ## Installation
 1. **Clone the repository**
 ```sh
-git clone https://github.com/your-username/linkedin-job-scraper.git
-cd linkedin-job-scraper
+git clone https://github.com/ykarathnasiri/linkedin-jobs-sl-scraper.git
+cd linkedin-jobs-sl-scraper
 ```
 2. **Install dependencies**
 ```sh
