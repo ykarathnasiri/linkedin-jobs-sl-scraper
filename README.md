@@ -1,127 +1,90 @@
-# linkedin-jobs-sl-scraper
-# LinkedIn Job Scraper - Sri Lanka
+# LinkedIn Job Scraper
 
-A Python-based web scraper that automatically collects all job listings from LinkedIn in Sri Lanka. The scraper captures detailed job information including job title, company, location, experience level, job description, and more.
+## Overview
+This LinkedIn Job Scraper is a Python-based tool that scrapes job listings from LinkedIn using web scraping techniques. It collects job details, including the title, company, location, experience level, salary, job function, required skills, and more. The scraped data is then saved in a CSV file for further analysis.
 
 ## Features
-
-- Scrapes all available LinkedIn jobs in Sri Lanka
-- Captures detailed job information including descriptions and requirements
-- Real-time progress tracking
-- Continuous CSV data saving (no data loss on interruption)
-- Comprehensive error handling and logging
-- Automatic rate limiting to respect LinkedIn's servers
-- Detects when all jobs have been scraped
+- **Scrapes job listings from LinkedIn**
+- **Extracts detailed job information, including company details and job descriptions**
+- **Saves data to a CSV file with structured columns**
+- **Logs errors and warnings for debugging purposes**
+- **User-friendly console interface for job keyword input and number of jobs to scrape**
 
 ## Prerequisites
-
-- Python 3.8 or higher
-- pip (Python package installer)
+Ensure you have Python installed (version 3.7 or later). You can check your Python version with:
+```sh
+python --version
+```
 
 ## Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/linkedin-jobs-sl-scraper.git
-cd linkedin-jobs-sl-scraper
+1. **Clone the repository**
+```sh
+git clone https://github.com/your-username/linkedin-job-scraper.git
+cd linkedin-job-scraper
 ```
-
-2. Create and activate a virtual environment:
-
-On Windows:
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-On macOS/Linux:
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-3. Install required packages:
-```bash
+2. **Install dependencies**
+```sh
 pip install -r requirements.txt
 ```
 
-## Project Structure
-
-```
-linkedin-jobs-sl-scraper/
-│
-├── data/                  # Directory for scraped data
-├── src/                   # Source code
-│   └── scraper.py        # Main scraper script
-│
-├── venv/                  # Virtual environment (auto-generated)
-├── .gitignore
-├── README.md
-├── requirements.txt
-└── linkedin_scraper.log  # Log file (auto-generated)
-```
-
 ## Usage
-
-1. Make sure your virtual environment is activated
-2. Run the scraper:
-```bash
-python src/scraper.py
+Run the script with:
+```sh
+python linkedin_scraper.py
 ```
 
-The script will:
-- Start scraping all LinkedIn jobs in Sri Lanka
-- Show real-time progress
-- Save data continuously to a CSV file in the `data` directory
-- Create a log file with detailed operation information
-- Stop automatically when all available jobs are scraped
+### How It Works:
+1. The script prompts the user to enter job keywords (e.g., "Software Engineer").
+2. The user can specify the number of jobs to scrape.
+3. The scraper fetches job listings from LinkedIn.
+4. The extracted data is stored in a CSV file inside the `data/` directory.
+5. A log file (`linkedin_scraper.log`) records errors and actions for debugging.
+
+## File Structure
+```
+linkedin-job-scraper/
+│-- linkedin_scraper.py        # Main script
+│-- requirements.txt           # Dependencies
+│-- README.md                  # Documentation
+│-- data/                      # Output CSV files
+│-- linkedin_scraper.log        # Log file
+```
 
 ## Output
+The scraper generates a CSV file with the following columns:
+- `job_id`
+- `title`
+- `company`
+- `location`
+- `experience_level`
+- `employment_type`
+- `posted_date`
+- `job_function`
+- `industries`
+- `salary`
+- `required_skills`
+- `description`
+- `company_size`
+- `company_industry`
+- `applicant_count`
+- `job_url`
 
-The scraper creates two main outputs:
-
-1. CSV file (in `data` directory) with columns:
-   - job_id
-   - title
-   - company
-   - location
-   - experience_level
-   - employment_type
-   - posted_date
-   - job_function
-   - industries
-   - salary
-   - required_skills
-   - description
-   - company_size
-   - company_industry
-   - applicant_count
-   - job_url
-
-2. Log file (`linkedin_scraper.log`) with detailed operation logs
+## Example Output
+| job_id | title | company | location | experience_level | employment_type | posted_date | job_function | industries | salary | required_skills | description | company_size | company_industry | applicant_count | job_url |
+|--------|-------|---------|----------|------------------|----------------|-------------|--------------|------------|--------|----------------|-------------|--------------|----------------|----------------|---------|
+| 12345 | Data Scientist | ABC Corp | Colombo, Sri Lanka | Mid-Level | Full-Time | 2024-02-17 | Analytics | Tech | $5000/month | Python, SQL, ML | AI development role | 500-1000 | IT & Services | 50 | https://linkedin.com/jobs/view/12345 |
 
 ## Error Handling
+- The script logs errors if a webpage fails to load or data cannot be extracted.
+- If an error occurs while saving, the script attempts to save the CSV file in the user's home directory as a backup.
 
-- The scraper includes comprehensive error handling
-- All errors are logged to `linkedin_scraper.log`
-- If the main data directory is not accessible, it will save to the user's home directory
-- Data is saved continuously, so interruptions won't lose scraped data
-
-## Rate Limiting
-
-The scraper includes built-in delays to respect LinkedIn's servers:
-- 1 second delay between individual job scrapes
-- 2 seconds delay between pages
-- Automatic detection of failed requests
+## Limitations
+- LinkedIn may block frequent scraping requests.
+- Some job details may not be fully extracted due to website structure changes.
 
 ## Contributing
-
-Feel free to open issues or submit pull requests with improvements.
+Feel free to contribute by submitting issues or pull requests.
 
 ## License
+This project is licensed under the MIT License.
 
-MIT License - feel free to use this code for any purpose.
-
-## Disclaimer
-
-This scraper is for educational purposes only. Make sure to comply with LinkedIn's terms of service and robots.txt when using this tool.
