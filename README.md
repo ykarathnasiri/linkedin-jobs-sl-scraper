@@ -1,7 +1,7 @@
 # LinkedIn Job Scraper
 
 ## Overview
-This LinkedIn Job Scraper is a Python-based tool that scrapes job listings from LinkedIn using web scraping techniques. It collects job details, including the title, company, location, experience level, salary, job function, required skills, and more. The scraped data is then saved in a CSV file for further analysis.
+This LinkedIn Job Scraper is a Python-based tool that scrapes job listings from LinkedIn using web scraping techniques. It collects job details, including the title, company, location, experience level, employment type, posted date, job function, industries, salary, required skills, description, company size, company industry, applicant count, job URL, sort method, and time filter.
 
 ## Features
 - **Scrapes job listings from LinkedIn**
@@ -43,11 +43,11 @@ python linkedin_scraper.py
 ## File Structure
 ```
 linkedin-job-scraper/
-│-- linkedin_scraper.py        # Main script
-│-- requirements.txt           # Dependencies
-│-- README.md                  # Documentation
-│-- data/                      # Output CSV files
-│-- linkedin_scraper.log        # Log file
+├── linkedin_scraper.py        # Main script
+├── requirements.txt           # Dependencies
+├── README.md                  # Documentation
+├── data/                      # Output CSV files
+└── linkedin_scraper.log        # Log file
 ```
 
 ## Output
@@ -71,8 +71,8 @@ The scraper generates a CSV file with the following columns:
 
 ## Example Output
 | job_id | title | company | location | experience_level | employment_type | posted_date | job_function | industries | salary | required_skills | description | company_size | company_industry | applicant_count | job_url |
-|--------|-------|---------|----------|------------------|----------------|-------------|--------------|------------|--------|----------------|-------------|--------------|----------------|----------------|---------|
-| 12345 | Data Scientist | ABC Corp | Colombo, Sri Lanka | Mid-Level | Full-Time | 2024-02-17 | Analytics | Tech | $5000/month | Python, SQL, ML | AI development role | 500-1000 | IT & Services | 50 | https://linkedin.com/jobs/view/12345 |
+|--------|-------|---------|----------|------------------|-----------------|-------------|--------------|------------|--------|-----------------|-------------|--------------|------------------|-----------------|---------|
+| 12345  | Data Scientist | ABC Corp | Colombo, Sri Lanka | Mid-Level | Full-Time | 2024-02-17 | Analytics | Tech | $5000/month | Python, SQL, ML | AI development role | 500-1000 | IT & Services | 45 | [Job URL] |
 
 ## Error Handling
 - The script logs errors if a webpage fails to load or data cannot be extracted.
@@ -87,4 +87,3 @@ Feel free to contribute by submitting issues or pull requests.
 
 ## License
 This project is licensed under the MIT License.
-
